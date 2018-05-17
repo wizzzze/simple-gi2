@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Lightmap</title>
+		<style>
+		body{
+			margin: 0;
+			padding: 0;
+			overflow: hidden;
+		}
+		</style>
+	</head>
+	<body>
+		
+	</body>
+
+
+    <script src="./three.min.js"></script>
+    <script src="./LightMapper.js"></script>
+    <script src="./GeometrySubdivisionModifier.js"></script>
+    <script>
+    	var camera, scene, renderer;
+
+
+		renderer = new THREE.WebGLRenderer();
+		renderer.setPixelRatio( window.devicePixelRatio );
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		renderer.shadowMap.enabled = true;
+		renderer.shadowMap.type = THREE.PCFSoftShadowMap; // default THREE.PCFShadowMap
+
+		document.body.appendChild( renderer.domElement );
+
+
+		camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 2000 );
+		camera.position.x = 10;
+		camera.position.y = 10;
+		camera.position.z = 10;
+		camera.lookAt(0,0,0);
+
+		var lightMapper;
+		var loader = new THREE.ObjectLoader();
+		loader.load("./scene.json", function ( obj ) {
+		 	scene = obj;
+		 	for(var i = 0; i < scene.children.length; i ++){
+		 		var child = scene.children[i];
+		 		if(child.isPointLight){
+		 			child.castShadow = true; 
+		 		}else if(child.isMesh){
+		 			child.castShadow = true; //default is false
+					child.receiveShadow = true; //default			
+		 		}
+		 	}
+			lightMapper = new THREE.LightMapper(scene, renderer);
+			animate();
+		} );
+
+
+		function animate() {
+			requestAnimationFrame( animate );
+
+			render();
+		}
+
+		function render() {
+			renderer.render( scene, camera );
+		}
+
+    </script>
+
+</html>
