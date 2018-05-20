@@ -3,7 +3,8 @@ THREE.LightMapper = function(scene, renderer){
 	this.scene = new THREE.Scene();
 	this.renderer = renderer;
 	this.lights = [];
-	this.lightIndex = 0;
+
+	this.lightState = new LightState();
 
 	this.meshs = [];
 	this.meshIndex = 0;
@@ -23,6 +24,10 @@ THREE.LightMapper = function(scene, renderer){
 			}
 		}
 	}
+
+	this.orthographicCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+	this.orthographicCamera.position.set(0, 0, 0);
+
 
 }
 
@@ -128,18 +133,62 @@ THREE.LightMapper.prototype = {
 	},
 
 
-
-	directLight : function(){
-		var light = this.lights[this.lightIndex];
+	setupShadowMap : function(light){
 		var shadowMap = light.shadow.map;
 		if(shadowMap === null){
-			//TODO:: render shadow map
+			//render shaodw map
 		}
-		
-		/*if(shadowMap.mapSize.x < 2048 && shadowMap.mapSize.y < 2048){	
-		//TODO:: rerender shadow map if map size is too small
-		}*/
 
-	}
+	},
+	directLight : function(){
+		var light, shadowMap;
+		for(var i = 0; i < this.lights.length; i ++){
+			var light = this.lights[i];
+			this.setupShadowMap(light);
+		}
+
+		this.state.setup(this.lights);
+
+		var tempScene = new THREE.Scene();
+
+		var tempRenderTarget = new THREE.WebGLRenderTarget( 512, 512, {
+			depthBuffer : false,
+			stencilBuffer : false
+		});
+
+		var uniforms = {};
+
+		uniforms.directionalLights = { value : this.lightState.state.directional };
+		uniforms.spotLights.value = { value : this.lightState.state.spot };
+		uniforms.pointLights.value = { value : this.lightState.state.point };
+
+		uniforms.directionalShadowMap = { value : this.lightState.state.directionalShadowMap };
+		uniforms.directionalShadowMatrix = { value : this.lightState.state.directionalShadowMatrix };
+		uniforms.spotShadowMap = { value : this.lightState.state.spotShadowMap };
+		uniforms.spotShadowMatrix = { value : this.lightState.state.spotShadowMatrix };
+		uniforms.pointShadowMap = { value : this.lightState.state.pointShadowMap };
+		uniforms.pointShadowMatrix = { value : this.lightState.state.pointShadowMatrix };
+
+		var material = new THREE.ShaderMaterial({
+			uniforms : uniforms,
+			vertextShader : ShaderLib.vertextShader,
+			fragmentShader : ShaderLib.fragmentShader,
+		});
+
+		tempScene.overrideMaterial = material;
+
+		for(var m = 0, n = this.scene.children.length; m < n; m ++){
+			var mesh = this.scene.children[m];
+			console.log(mesh);
+
+			// 有时部分网格会被莫名裁剪掉，可在此处关闭裁剪，具体原因仍需要进一步查证
+			// mesh.frustumCulled = false;
+			
+			tempScene.add(mesh);
+
+			this.renderer.render(tempScene, this.orthographicCamera, tempRenderTarget);
+
+		}
+	},
 
 }
