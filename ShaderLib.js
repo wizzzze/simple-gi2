@@ -8,7 +8,6 @@ varying vec3 vPosition;
 varying vec3 vNormal;
 varying vec2 vUv;
 
-
 void main(){
 	vUv2 = uv2;
 	vPosition = (modelMatrix * vec4(position, 1.)).xyz;
@@ -20,20 +19,15 @@ void main(){
 `,
 
 	fragmentShader : `
+	
+varying vec2 vUv2;
+varying vec3 vPosition;
+varying vec3 vNormal;
+varying vec2 vUv;
 
-varying vec3 vViewPosition;
-
-struct IncidentLight {
-	vec3 color;
-	vec3 direction;
-	bool visible;
-};
-
-struct GeometricContext {
-	vec3 position;
-	vec3 normal;
-	vec3 viewDir;
-};
+#include <common>
+#include <packing>
+#include <bsdfs>
 
 #ifndef saturate
 	#define saturate(a) clamp( a, 0.0, 1.0 )
@@ -180,24 +174,24 @@ struct GeometricContext {
 
 #if NUM_DIR_LIGHTS > 0
 
-		uniform sampler2D directionalShadowMap[ NUM_DIR_LIGHTS ];
-		varying vec4 vDirectionalShadowCoord[ NUM_DIR_LIGHTS ];
+	uniform sampler2D directionalShadowMap[ NUM_DIR_LIGHTS ];
+	varying vec4 vDirectionalShadowCoord[ NUM_DIR_LIGHTS ];
 
-	#endif
+#endif
 
-	#if NUM_SPOT_LIGHTS > 0
+#if NUM_SPOT_LIGHTS > 0
 
-		uniform sampler2D spotShadowMap[ NUM_SPOT_LIGHTS ];
-		varying vec4 vSpotShadowCoord[ NUM_SPOT_LIGHTS ];
+	uniform sampler2D spotShadowMap[ NUM_SPOT_LIGHTS ];
+	varying vec4 vSpotShadowCoord[ NUM_SPOT_LIGHTS ];
 
-	#endif
+#endif
 
-	#if NUM_POINT_LIGHTS > 0
+#if NUM_POINT_LIGHTS > 0
 
-		uniform sampler2D pointShadowMap[ NUM_POINT_LIGHTS ];
-		varying vec4 vPointShadowCoord[ NUM_POINT_LIGHTS ];
+	uniform sampler2D pointShadowMap[ NUM_POINT_LIGHTS ];
+	varying vec4 vPointShadowCoord[ NUM_POINT_LIGHTS ];
 
-	#endif
+#endif
 
 	/*
 	#if NUM_RECT_AREA_LIGHTS > 0
@@ -418,7 +412,6 @@ struct GeometricContext {
 
 	}
 
-#endif
 
 void getIrradiance( const in IncidentLight directLight, const in GeometricContext geometry, inout irradiance){
 	
@@ -427,28 +420,25 @@ void getIrradiance( const in IncidentLight directLight, const in GeometricContex
 }
 
 
-
-#include <bsdfs>
-
 void main(){
 
 vec3 normal = normalize( vNormal );
 
 #ifdef USE_NORMALMAP
 
-	normal = perturbNormal2Arb( -vViewPosition, normal );
+	normal = perturbNormal2Arb( -vPosition, normal );
 
 	#elif defined( USE_BUMPMAP )
 
-		normal = perturbNormalArb( -vViewPosition, normal, dHdxy_fwd() );
+		normal = perturbNormalArb( -vPosition, normal, dHdxy_fwd() );
 
 #endif
 
 GeometricContext geometry;
 
-geometry.position = - vViewPosition;
+geometry.position = - vPosition;
 geometry.normal = normal;
-geometry.viewDir = normalize( vViewPosition );
+geometry.viewDir = normalize( vPosition );
 
 IncidentLight directLight;
 

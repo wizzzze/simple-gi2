@@ -79,6 +79,7 @@ THREE.LightMapper.prototype = {
 		}
 
 		var texture = new THREE.DataTexture( data, size.width, size.height, THREE.RGBFormat );
+
 		return texture;
 	},
 
@@ -128,7 +129,8 @@ THREE.LightMapper.prototype = {
 		if(geometry.area === undefined){
 			throw "Geometry area missed";
 		}
-		var size = 128 * geometry.area;
+		var size = Math.floor(128 * geometry.area);
+
 		return { width : size, height : size };
 	},
 
@@ -139,6 +141,8 @@ THREE.LightMapper.prototype = {
 			//render shaodw map
 		}
 
+		//如果shadow map 分辨率不够，则提高分辨率后重新渲染一次shadow map
+
 	},
 	directLight : function(){
 		var light, shadowMap;
@@ -147,7 +151,7 @@ THREE.LightMapper.prototype = {
 			this.setupShadowMap(light);
 		}
 
-		this.state.setup(this.lights);
+		this.lightState.setup(this.lights);
 
 		var tempScene = new THREE.Scene();
 
@@ -159,8 +163,8 @@ THREE.LightMapper.prototype = {
 		var uniforms = {};
 
 		uniforms.directionalLights = { value : this.lightState.state.directional };
-		uniforms.spotLights.value = { value : this.lightState.state.spot };
-		uniforms.pointLights.value = { value : this.lightState.state.point };
+		uniforms.spotLights = { value : this.lightState.state.spot };
+		uniforms.pointLights = { value : this.lightState.state.point };
 
 		uniforms.directionalShadowMap = { value : this.lightState.state.directionalShadowMap };
 		uniforms.directionalShadowMatrix = { value : this.lightState.state.directionalShadowMatrix };
@@ -178,17 +182,48 @@ THREE.LightMapper.prototype = {
 		tempScene.overrideMaterial = material;
 
 		for(var m = 0, n = this.scene.children.length; m < n; m ++){
+			//清空tempScene中所有的Mesh
+			
+			for(var i = 0, j = tempScene.children.length; i < j; i++){
+				tempScene.remove(tempScene.children[i]);
+			}
+
 			var mesh = this.scene.children[m];
-			console.log(mesh);
 
 			// 有时部分网格会被莫名裁剪掉，可在此处关闭裁剪，具体原因仍需要进一步查证
 			// mesh.frustumCulled = false;
 			
+			var lightTexture = mesh.material.lightMap.image;
+			tempRenderTarget.setSize(lightTexture.width, lightTexture.height);
+
 			tempScene.add(mesh);
 
+			this.renderer.clear();
 			this.renderer.render(tempScene, this.orthographicCamera, tempRenderTarget);
 
+			var dataSize = lightTexture.width * lightTexture.height;
+			var data = new Uint8Array( 3 * dataSize );
+
+			this.renderer.readRenderTargetPixels(tempRenderTarget, 0, 0, lightTexture.width, lightTexture.height, data);
+
+			this.updateLightMap(mesh, data);
 		}
 	},
+
+	updateLightMap : function(mesh, data){
+		var imageData = mesh.material.lightMap.image.data;
+		var length  = imageData.length / 3;
+
+		for(var i = 0 ; i < length; i ++){
+			var stride = i * 3;
+			imageData[ stride ] = data[ stride ];
+			imageData[ stride + 1 ] = data[ stride + 1 ];
+			imageData[ stride + 2 ] = data[ stride + 2 ];
+		}
+
+		mesh.material.lightMap.needsUpdate = true;
+
+
+	}
 
 }
